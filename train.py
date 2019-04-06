@@ -6,6 +6,7 @@ import os
 import pickle
 import chainer
 import numpy as np
+from chainer.links import VGG19Layers
 
 import srcgan
 
@@ -14,6 +15,8 @@ parser.add_argument("--src", "-s", required=True)
 parser.add_argument("--gpu", "-g", type=int, default=-1)
 parser.add_argument("--batchsize", "-b", type=int, default=10)
 parser.add_argument("--outdirname", "-o", required=True)
+parser.add_argument("--vgg", "-v", action="store_true")
+parser.add_argument("--vgg_layers", "-vl", type=str, default="conv5_4")
 parser.add_argument("--pretrained_generator")
 parser.add_argument("--k_adversarial", type=float, default=1)
 parser.add_argument("--k_mse", type=float, default=1)
@@ -55,6 +58,10 @@ optimizer_generator.setup(generator)
 
 count_processed = 0
 sum_loss_generator, sum_loss_generator_adversarial, sum_loss_generator_content = 0, 0, 0
+
+if args.vgg:
+    vgg = VGG19Layers()
+
 for zipped_batch in iterator:
     low_res = chainer.Variable(np.array([zipped[0] for zipped in zipped_batch]))
     high_res = chainer.Variable(np.array([zipped[1] for zipped in zipped_batch]))
@@ -67,10 +74,16 @@ for zipped_batch in iterator:
         chainer.Variable(np.zeros(discriminated_from_super_res.data.shape[0], dtype=np.int32))
     )
 
-    loss_generator_content = chainer.functions.mean_squared_error(
-        super_res,
-        high_res
-    )
+    if not args.vgg:
+        loss_generator_content = chainer.functions.mean_squared_error(
+            super_res,
+            high_res
+        )
+    else:
+        loss_generator_content = chainer.functions.mean_squared_error(
+            vgg.forward(super_res, layers=[args.vgg_layers])[args.vgg_layers],
+            vgg.forward(high_res, layers=[args.vgg_layers])[args.vgg_layers]
+        )
 
     loss_generator = loss_generator_content * args.k_mse + loss_generator_adversarial * args.k_adversarial
     sum_loss_generator_adversarial += loss_generator_adversarial.data
