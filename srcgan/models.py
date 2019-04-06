@@ -8,6 +8,7 @@ from chainer.links.connection.convolution_2d import Convolution2D
 from chainer.links.connection.linear import Linear
 from chainer.links.normalization.batch_normalization import BatchNormalization
 from chainer.initializers import Normal
+from chainer.functions import depth2space
 
 def pixel_shuffle_upscale(x: chainer.Variable):
     def channel_to_axis(x: chainer.Variable, axis):
@@ -50,7 +51,7 @@ class SRGeneratorUpScaleBlock(chainer.Chain):
 
     def __call__(self, x: chainer.Variable):
         h = self.conv(x)
-        h = pixel_shuffle_upscale(h)
+        h = depth2space(h, r=2)
         h = chainer.functions.relu(h)
         return h
 
