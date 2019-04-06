@@ -7,6 +7,7 @@ import pickle
 import chainer
 import numpy as np
 from chainer.links import VGG19Layers
+from chainer.dataset import concat_examples
 
 import srcgan
 
@@ -14,6 +15,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--src", "-s", required=True)
 parser.add_argument("--gpu", "-g", type=int, default=-1)
 parser.add_argument("--batchsize", "-b", type=int, default=10)
+parser.add_argument("--epoch", "-e", type=int, default=10)
 parser.add_argument("--outdirname", "-o", required=True)
 parser.add_argument("--vgg", "-v", action="store_true")
 parser.add_argument("--vgg_layers", "-vl", type=str, default="conv5_4")
@@ -62,9 +64,11 @@ sum_loss_generator, sum_loss_generator_adversarial, sum_loss_generator_content =
 if args.vgg:
     vgg = VGG19Layers()
 
-for zipped_batch in iterator:
-    low_res = chainer.Variable(np.array([zipped[0] for zipped in zipped_batch]))
-    high_res = chainer.Variable(np.array([zipped[1] for zipped in zipped_batch]))
+
+while iterator.epoch < args.epoch:
+    train_batch = iterator.next()
+    low_res, high_res = concat_examples(train_batch, args.gpu)
+
     super_res = generator(low_res)
 
     discriminated_from_super_res = discriminator(super_res)
@@ -108,18 +112,14 @@ for zipped_batch in iterator:
     sum_loss_generator += loss_generator.data
 
     report_span = args.batchsize * 10
-    save_span = args.batchsize * 1000
     count_processed += len(super_res.data)
     if count_processed % report_span == 0:
         logging.info("processed: {}".format(count_processed))
-        # logging.info("accuracy_discriminator: {}".format(sum_accuracy * batchsize / report_span))
-        # logging.info("accuracy_classifier: {}".format(sum_accuracy_classifier * batchsize / report_span))
-        # logging.info("loss_classifier: {}".format(sum_loss_classifier / report_span))
-        # logging.info("loss_discriminator: {}".format(sum_loss_discriminator / report_span))
         logging.info("loss_generator: {}".format(sum_loss_generator / report_span))
         logging.info("loss_generator_adversarial: {}".format(sum_loss_generator_adversarial / report_span))
         logging.info("loss_generator_mse: {}".format(sum_loss_generator_content / report_span))
         sum_loss_generator, sum_loss_generator_adversarial, sum_loss_generator_content = 0, 0, 0
-    if count_processed % save_span == 0:
+
+    if iterator.is_new_epoch:
         chainer.serializers.save_npz(
-            os.path.join(OUTPUT_DIRECTORY, "generator_model_{}.npz".format(count_processed)), generator)
+            os.path.join(OUTPUT_DIRECTORY, "generator_model_epoch-{}.npz".format(iterator.epoch)), generator)
