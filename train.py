@@ -8,6 +8,7 @@ import chainer
 import numpy as np
 from chainer.links import VGG19Layers
 from chainer.dataset import concat_examples
+from chainer.backends.cuda import to_cpu
 
 import srcgan
 
@@ -94,8 +95,8 @@ while iterator.epoch < args.epoch:
         )
 
     loss_generator = loss_generator_content * args.k_mse + loss_generator_adversarial * args.k_adversarial
-    sum_loss_generator_adversarial += loss_generator_adversarial.data
-    sum_loss_generator_content += loss_generator_content.data
+    sum_loss_generator_adversarial += to_cpu(loss_generator_adversarial.data)
+    sum_loss_generator_content += to_cpu(loss_generator_content.data)
 
     loss_discriminator = chainer.functions.softmax_cross_entropy(
         discriminated_from_super_res,
@@ -113,7 +114,7 @@ while iterator.epoch < args.epoch:
     loss_discriminator.backward()
     optimizer_discriminator.update()
 
-    sum_loss_generator += loss_generator.data
+    sum_loss_generator += to_cpu(loss_generator.data)
 
     report_span = args.batchsize * 10
     count_processed += len(super_res.data)
