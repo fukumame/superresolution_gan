@@ -47,7 +47,10 @@ generator = srcgan.models.SRGenerator()
 if args.pretrained_generator is not None:
     chainer.serializers.load_npz(args.pretrained_generator, generator)
 if args.gpu >= 0:
+    chainer.cuda.get_device_from_id(args.gpu).use()
     generator.to_gpu()
+
+xp = generator.xp
 
 discriminator = srcgan.models.SRDiscriminator()
 if args.gpu >= 0:
@@ -63,7 +66,8 @@ sum_loss_generator, sum_loss_generator_adversarial, sum_loss_generator_content =
 
 if args.vgg:
     vgg = VGG19Layers()
-
+    if args.gpu >= 0:
+        vgg.to_gpu()
 
 while iterator.epoch < args.epoch:
     train_batch = iterator.next()
@@ -75,7 +79,7 @@ while iterator.epoch < args.epoch:
     discriminated_from_high_res = discriminator(high_res)
     loss_generator_adversarial = chainer.functions.softmax_cross_entropy(
         discriminated_from_super_res,
-        chainer.Variable(np.zeros(discriminated_from_super_res.data.shape[0], dtype=np.int32))
+        chainer.Variable(xp.zeros(discriminated_from_super_res.data.shape[0], dtype=xp.int32))
     )
 
     if not args.vgg:
@@ -95,10 +99,10 @@ while iterator.epoch < args.epoch:
 
     loss_discriminator = chainer.functions.softmax_cross_entropy(
         discriminated_from_super_res,
-        chainer.Variable(np.ones(discriminated_from_super_res.data.shape[0], dtype=np.int32))
+        chainer.Variable(xp.ones(discriminated_from_super_res.data.shape[0], dtype=xp.int32))
     ) + chainer.functions.softmax_cross_entropy(
         discriminated_from_high_res,
-        chainer.Variable(np.zeros(discriminated_from_high_res.data.shape[0], dtype=np.int32))
+        chainer.Variable(xp.zeros(discriminated_from_high_res.data.shape[0], dtype=xp.int32))
     )
 
     generator.cleargrads()
