@@ -12,6 +12,7 @@ python train.py \
   --pretrained_generator generator_model_3008000.npz \
   --src ./src
   --batchsize=16 \
+  --epoch=10
   --k_mse=0.0001 \
   --k_adversarial=0.00001 \
   --outdirname output
